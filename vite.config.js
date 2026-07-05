@@ -22,6 +22,7 @@ const projectRoot = __dirname;
 // el repositorio.
 const DEFAULT_FICTIONAL_DOMAIN = 'api.lumocolombia.com.co';
 const DEFAULT_GRAPHQL_PATH     = '/graphql/v1';
+const DEFAULT_CORS_ORIGIN      = '*';
 
 export default defineConfig(({ mode }) => {
   // Carga TODAS las variables del .env (sin importar prefijo) para
@@ -46,16 +47,18 @@ export default defineConfig(({ mode }) => {
   const SUPABASE_ANON_KEY         = env.SUPABASE_ANON_KEY;
   const FICTIONAL_DOMAIN          = env.FICTIONAL_DOMAIN || DEFAULT_FICTIONAL_DOMAIN;
   const SUPABASE_GRAPHQL_ENDPOINT = `${SUPABASE_URL}${env.GRAPHQL_PATH || DEFAULT_GRAPHQL_PATH}`;
+  const GATEWAY_CORS_ORIGIN       = env.GATEWAY_CORS_ORIGIN ?? DEFAULT_CORS_ORIGIN;
 
   return {
     // Sustituciones a nivel AST (Rollup). Reemplazan los IDENTIFICADORES
     // exactamente por las cadenas literales en cada módulo importado por
     // el SW. Importante: estas claves NUNCA aparecen en `lumo-api.js`.
     define: {
-      __SUPABASE_URL__: JSON.stringify(SUPABASE_URL),
-      __SUPABASE_ANON_KEY__: JSON.stringify(SUPABASE_ANON_KEY),
-      __FICTIONAL_DOMAIN__: JSON.stringify(FICTIONAL_DOMAIN),
-      __SUPABASE_GRAPHQL_ENDPOINT__: JSON.stringify(SUPABASE_GRAPHQL_ENDPOINT)
+      __SUPABASE_URL__:              JSON.stringify(SUPABASE_URL),
+      __SUPABASE_ANON_KEY__:         JSON.stringify(SUPABASE_ANON_KEY),
+      __FICTIONAL_DOMAIN__:          JSON.stringify(FICTIONAL_DOMAIN),
+      __SUPABASE_GRAPHQL_ENDPOINT__: JSON.stringify(SUPABASE_GRAPHQL_ENDPOINT),
+      __GATEWAY_CORS_ORIGIN__:       JSON.stringify(GATEWAY_CORS_ORIGIN)
     },
     build: {
       target: 'es2020',
@@ -86,8 +89,11 @@ export default defineConfig(({ mode }) => {
             // Seguridad adicional: si algún plugin intenta crear un
             // chunk compartido, lo asignamos al `sw` para garantizar
             // que `lumo-api.js` quede 100% limpio.
-            if (id.includes('/src/client/')) return 'lumo-api';
-            if (id.includes('/src/sw/'))     return 'sw';
+            // Normalizamos separadores para que el matcher funcione
+            // tanto en Windows (`\`) como en POSIX (`/`).
+            const norm = String(id).replaceAll('\\', '/');
+            if (norm.includes('/src/client/')) return 'lumo-api';
+            if (norm.includes('/src/sw/'))     return 'sw';
             return null;
           }
         }
@@ -102,29 +108,26 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       // -------------------------------------------------------------------------
-      // Plugin `lumo-mirror-to-root` (solo build):
-      // Tras el bundle copia `lumo-api.js`, `sw.js` y el HTML al directorio
-      // `dist/`. NO toca la raíz del proyecto: la fuente sigue viviendo en
-      // `src/` y el compilado en `dist/`. La raíz queda limpia de artefactos.
+      // Plugin `lumo-html-to-dist` (solo build):
+      // Copia `src/website/index.html` a `dist/index.html` para que el bundle
+      // sirva como entrega autocontenida. `lumo-api.js` y `sw.js` ya viven en
+      // `dist/` gracias al `outDir` por defecto; no hace falta tocarlos.
+      // La fuente sigue viviendo en `src/` y la raíz del proyecto permanece
+      // limpia de artefactos.
       // -------------------------------------------------------------------------
       {
-        name: 'lumo-mirror-to-dist',
+        name: 'lumo-html-to-dist',
         apply: 'build',
         closeBundle() {
           const distDir    = resolve(projectRoot, 'dist');
           const websiteHtml = resolve(projectRoot, 'src/website/index.html');
-
-          for (const f of ['lumo-api.js', 'sw.js']) {
-            const src = resolve(distDir, f);
-            if (existsSync(src)) copyFileSync(src, resolve(distDir, f));
-          }
 
           if (existsSync(websiteHtml)) {
             const html = readFileSync(websiteHtml, 'utf8');
             writeFileSync(resolve(distDir, 'index.html'), html, 'utf8');
           } else {
             console.warn(
-              '[lumo-mirror-to-dist] No se encontró src/website/index.html; ' +
+              '[lumo-html-to-dist] No se encontró src/website/index.html; ' +
               'se omite la copia del HTML.'
             );
           }
@@ -161,6 +164,7 @@ export default defineConfig(({ mode }) => {
           out = out.replaceAll('__SUPABASE_ANON_KEY__',         JSON.stringify(SUPABASE_ANON_KEY));
           out = out.replaceAll('__FICTIONAL_DOMAIN__',          JSON.stringify(FICTIONAL_DOMAIN));
           out = out.replaceAll('__SUPABASE_GRAPHQL_ENDPOINT__', JSON.stringify(SUPABASE_GRAPHQL_ENDPOINT));
+          out = out.replaceAll('__GATEWAY_CORS_ORIGIN__',       JSON.stringify(GATEWAY_CORS_ORIGIN));
           return { code: out, map: null };
         },
 

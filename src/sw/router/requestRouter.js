@@ -42,6 +42,15 @@ import {
 import { graphqlStatusFromErrors } from '../errors/graphqlErrorMapping.js';
 
 /**
+ * Timeout defensivo para cualquier upstream (PostgREST / pg_graphql).
+ * Si Supabase se queda colgado, esta cota impide que la petición del
+ * cliente bloquee indefinidamente. 15 s es suficiente para Internet
+ * móvil y deja margen para el cold-start de funciones edge; si lo
+ * necesitas ajustable, promóvete a variable de `.env`.
+ */
+const UPSTREAM_TIMEOUT_MS = 15_000;
+
+/**
  * Maneja una petición interceptada por el SW.
  *
  * Estrategia: componer el `init` de `fetch()` de forma que el constructor
@@ -85,7 +94,16 @@ export async function handleRequest(request, url) {
     }
 
     // 4) Ejecutar la consulta contra el upstream (Supabase).
-    const upstreamResponse = await fetch(upstreamUrl, outboundInit);
+    //    Combinamos el `signal` del cliente con un timeout defensivo
+    //    para que ni cancelaciones ni cuelgues upstream queden colgados.
+    const upstreamSignal = AbortSignal.any([
+      request.signal,
+      AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    ]);
+    const upstreamResponse = await fetch(upstreamUrl, {
+      ...outboundInit,
+      signal: upstreamSignal,
+    });
 
     // 5) Si el upstream devuelve status no-2xx, preservar el código.
     if (!upstreamResponse.ok) {

@@ -9,7 +9,8 @@
 
 import {
   FICTIONAL_DOMAIN,
-  SUPABASE_GRAPHQL_ENDPOINT
+  SUPABASE_GRAPHQL_ENDPOINT,
+  GATEWAY_CORS_ORIGIN
 } from '../config/constants.js';
 
 import { handleRequest } from './router/requestRouter.js';
@@ -44,8 +45,13 @@ self.addEventListener('message', (event) => {
 // Vite en localhost) consuman el gateway sin disparar errores de CORS.
 // El dominio ficticio no existe en DNS, por lo que cualquier fetch
 // cross-origin debe llevar estas cabeceras para que el body sea legible.
+//
+// `Access-Control-Allow-Origin` se inyecta desde la variable de entorno
+// `GATEWAY_CORS_ORIGIN` (default `*` para dev local). Si en producción
+// quieres restringirlo, define ese `.env` como el origen concreto de la
+// app que consume el gateway.
 const CORS_HEADERS = Object.freeze({
-  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Origin':  GATEWAY_CORS_ORIGIN,
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, Prefer, X-Client-Info',
   'Access-Control-Max-Age':       '600',
@@ -72,11 +78,17 @@ self.addEventListener('fetch', (event) => {
   }
 
   // `respondWith` permite entregar una Response arbitraria desde el SW.
-  // Envolvemos la promesa para clonar las cabeceras e inyectar CORS sin
-  // alterar la lógica del router (que sigue creando sus propias Response).
-  const inner = handleRequest(event.request, url);
+  // Envolvemos la promesa para:
+  //   1. Clonar las cabeceras e inyectar CORS sin alterar la lógica del
+  //      router (que sigue creando sus propias Response).
+  //   2. Garantizar que NINGUNA excepción escape al navegador como
+  //      `NetworkError` opaco: cualquier crash (incluido un `AbortError`
+  //      por cancelación del cliente) cae aquí y se transforma en una
+  //      Response 500/499 con cuerpo JSON legible.
   event.respondWith(
-    inner.then((response) => withCors(response))
+    handleRequest(event.request, url)
+      .then((response) => withCors(response))
+      .catch((err) => withCors(errorToResponse(err, url)))
   );
 });
 
@@ -96,4 +108,38 @@ function withCors(response) {
   } catch {
     return response;
   }
+}
+
+/**
+ * Construye una `Response` de error segura a partir de cualquier valor
+ * lanzado. Se usa como última barrera antes de devolver al cliente para
+ * evitar que un error inesperado (TypeError, AbortError, etc.) se
+ * convierta en un `NetworkError` opaco que rompa la UX.
+ *
+ * @param {unknown} err
+ * @param {URL}     url
+ * @returns {Response}
+ */
+function errorToResponse(err, url) {
+  // Si el cliente abortó la petición (AbortError), respondemos 499 para
+  // que el observador del cliente pueda distinguir cancelación de fallo.
+  const isAbort =
+    err && typeof err === 'object' && (err.name === 'AbortError' || err.code === 20);
+  const status = isAbort ? 499 : 500;
+  const code   = isAbort ? 'CLIENT_CLOSED_REQUEST' : 'LUMO_INTERNAL';
+
+  const body = JSON.stringify({
+    error: `Lumo gateway error: ${err?.message || String(err)}`,
+    code,
+  });
+
+  return new Response(body, {
+    status,
+    headers: {
+      'Content-Type':   'application/json',
+      'X-Lumo-Gateway': '1',
+      'X-Lumo-Path':    url?.pathname ?? '',
+      'X-Lumo-Source':  FICTIONAL_DOMAIN,
+    },
+  });
 }
