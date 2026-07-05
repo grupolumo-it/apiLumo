@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html class="dark" lang="es">
+<head>
+<meta charset="utf-8" />
+<meta content="width=device-width, initial-scale=1.0" name="viewport" />
+<title>Lumo API Console | Enterprise Playground</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+          "surface": "#0f172a",
+          "surface-container-low": "#1e293b",
+          "surface-container": "#334155",
+          "surface-container-high": "#475569",
+          "primary": "#3b82f6",
+          "on-primary": "#ffffff",
+          "secondary": "#10b981",
+          "tertiary": "#f59e0b",
+          "error": "#ef4444",
+          "outline": "#64748b",
+          "outline-variant": "#334155",
+          "on-surface": "#f8fafc",
+          "on-surface-variant": "#cbd5e1"
+        },
+        "borderRadius": { "DEFAULT": "0.5rem", "lg": "0.75rem", "xl": "1rem", "full": "9999px" },
+        "spacing": { "gutter": "1.5rem", "unit": "4px", "element-gap": "1rem", "sidebar-width": "280px", "container-padding": "2rem" },
+        "fontFamily": {
+          "headline-sm": ["Inter", "sans-serif"], "body-md": ["Inter", "sans-serif"],
+          "code-md": ["JetBrains Mono", "monospace"], "code-sm": ["JetBrains Mono", "monospace"],
+          "label-caps": ["Inter", "sans-serif"], "body-sm": ["Inter", "sans-serif"], "display-sm": ["Inter", "sans-serif"]
+        },
+        "boxShadow": { "subtle": "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)", "standard": "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)" }
+      },
+    },
+  }
+</script>
+<style>
+  body { background-color: #0f172a; color: #f8fafc; -webkit-font-smoothing: antialiased; }
+  html, body { height: 100%; }
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+  .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
+  .json-key    { color: #93c5fd; font-weight: 500; }
+  .json-string { color: #34d399; }
+  .json-number { color: #fbbf24; }
+  .json-bool   { color: #f472b6; }
+  .json-null   { color: #94a3b8; font-style: italic; }
+  .json-punct  { color: #64748b; }
+  input:focus, button:focus, textarea:focus { outline: 2px solid #3b82f6; outline-offset: 2px; }
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.25);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body class="font-body-md selection:bg-primary/20 selection:text-primary h-full overflow-hidden">
+
+<!-- Top Navigation Bar -->
+<header id="top-nav" class="fixed top-0 left-0 right-0 h-16 z-50 bg-surface border-b border-outline-variant flex items-center px-6 justify-between gap-6 shadow-sm">
+  <div id="brand" class="flex items-center gap-6 shrink-0">
+    <span class="font-bold text-xl text-on-surface tracking-tight flex items-center gap-2">
+      <span class="w-8 h-8 bg-primary rounded flex items-center justify-center">
+        <span class="material-symbols-outlined text-on-primary text-xl">dataset</span>
+      </span>
+      Lumo API Console
+    </span>
+  </div>
+  <div class="flex-1 max-w-3xl flex items-center bg-surface-container-low border border-outline-variant rounded-lg px-4 h-10 group focus-within:border-primary transition-all">
+    <span class="material-symbols-outlined text-outline text-lg mr-3">link</span>
+    <input id="base-url" class="bg-transparent border-none focus:ring-0 text-sm w-full font-code-md text-on-surface-variant" readonly type="text" value="https://api.lumocolombia.com.co" />
+    <div class="flex items-center gap-4 border-l border-outline-variant pl-4 ml-4">
+      <div id="sw-status" class="flex items-center gap-2 px-2.5 py-1 rounded-full bg-surface-container border border-outline-variant">
+        <span id="sw-dot" class="w-2 h-2 rounded-full bg-outline"></span>
+        <span id="sw-label" class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">SW: …</span>
+      </div>
+      <button id="btn-ping" class="material-symbols-outlined text-outline hover:text-on-surface transition-colors" title="Ping SW">refresh</button>
+    </div>
+  </div>
+  <div class="flex items-center gap-4 shrink-0">
+    <span id="lumo-version" class="text-[10px] font-mono text-outline"></span>
+  </div>
+</header>
+
+<main id="app-main" class="mt-16 h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
+
+  <!-- Tabs Bar -->
+  <div id="tabs-bar" class="h-12 bg-surface-container-low border-b border-outline-variant flex items-center px-4 gap-1 overflow-x-auto">
+    <!-- tabs inyectados por JS -->
+  </div>
+
+  <!-- Endpoint Header -->
+  <section id="endpoint-header" class="px-8 py-3 border-b border-outline-variant bg-surface relative">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-2">
+      <div>
+        <div class="flex items-center gap-4 mb-1">
+          <h1 id="endpoint-title" class="text-xl font-bold text-on-surface">Productos</h1>
+          <span id="endpoint-badge" class="px-3 py-1 bg-surface-container-high text-on-surface-variant border border-outline-variant text-[10px] font-bold uppercase rounded-md tracking-wider">
+            REST · PostgREST
+          </span>
+        </div>
+        <p id="endpoint-description" class="text-sm text-on-surface-variant max-w-3xl leading-relaxed"></p>
+      </div>
+      <div class="flex items-center gap-2">
+        <span id="engine-pill" class="px-3 py-1 bg-surface-container-low border border-outline-variant text-[10px] font-bold uppercase rounded-md tracking-wider text-on-surface-variant">engine</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Content Grid -->
+  <div id="content-grid" class="flex-1 grid grid-cols-1 lg:grid-cols-2 divide-x divide-outline-variant min-h-0 min-w-0">
+
+    <!-- Request Builder Panel -->
+    <div id="request-builder" class="bg-surface flex flex-col p-8 custom-scrollbar overflow-y-auto min-h-0 min-w-0">
+
+      <!-- Scenarios -->
+      <div id="scenarios-section" class="mb-10">
+        <h3 class="font-bold text-xs text-outline uppercase mb-5 tracking-widest flex items-center gap-2">
+          <span class="material-symbols-outlined text-sm">bolt</span> Scenarios
+        </h3>
+        <div id="scenarios-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+      </div>
+
+      <!-- Headers -->
+      <div id="headers-section" class="mb-10">
+        <h3 class="font-bold text-xs text-outline uppercase mb-5 tracking-widest flex items-center gap-2">
+          <span class="material-symbols-outlined text-sm">key</span> Headers
+        </h3>
+        <div class="space-y-3 bg-surface-container-low p-5 rounded-lg border border-outline-variant">
+          <div id="headers-list"></div>
+          <button id="btn-add-header" class="flex items-center gap-2 text-xs font-bold text-primary hover:text-blue-400 transition-colors pt-2 px-1">
+            <span class="material-symbols-outlined text-lg">add_circle</span>
+            <span>Add Row</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Parameters -->
+      <div id="params-section" class="mb-10">
+        <h3 class="font-bold text-xs text-outline uppercase mb-5 tracking-widest flex items-center gap-2">
+          <span class="material-symbols-outlined text-sm">settings_input_component</span> Query Parameters
+        </h3>
+        <div id="params-list" class="space-y-8"></div>
+      </div>
+    </div>
+
+    <!-- Inspector Panel -->
+    <div id="inspector" class="bg-slate-900 overflow-y-auto custom-scrollbar min-h-0 min-w-0">
+      <!-- Action Bar -->
+      <div id="action-bar" class="p-8 pb-8 bg-surface-container-low/30 border-b border-outline-variant">
+        <button id="btn-send" class="w-full h-14 bg-primary text-on-primary hover:bg-blue-600 transition-all flex items-center justify-center gap-4 rounded-xl shadow-standard active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed">
+          <span class="font-bold uppercase tracking-widest text-sm">Send Request</span>
+          <div class="flex items-center gap-1 px-2 py-1 bg-white/10 rounded-md text-[11px] font-mono border border-white/5">
+            <span>Ctrl</span><span>+</span><span>Enter</span>
+          </div>
+        </button>
+      </div>
+
+      <!-- URL Card -->
+      <div id="url-card" class="p-8 bg-surface-container-low/30 border-b border-outline-variant">
+        <h3 class="font-bold text-xs text-outline uppercase mb-4 tracking-widest">Request URL</h3>
+        <div class="bg-surface p-5 rounded-xl border border-outline-variant shadow-sm">
+          <div class="flex items-center gap-3 mb-3">
+            <span id="method-badge" class="px-2 py-0.5 bg-secondary/10 text-secondary border border-secondary/30 rounded text-[10px] font-bold font-mono">GET</span>
+            <span id="scheme-label" class="text-xs text-outline font-medium">HTTPS</span>
+            <span id="engine-label" class="ml-auto text-[10px] font-mono text-outline"></span>
+          </div>
+          <div id="request-url" class="text-sm font-code-md text-on-surface break-all leading-relaxed"></div>
+        </div>
+      </div>
+
+      <!-- Response Header -->
+      <div id="response-header" class="px-8 py-5 flex items-center justify-between border-b border-outline-variant bg-surface/50">
+        <div class="flex items-center gap-3">
+          <h3 class="font-bold text-xs text-outline uppercase tracking-widest">Response</h3>
+          <div id="response-meta" class="flex items-center gap-2 ml-4">
+            <span id="status-pill" class="px-3 py-1 bg-surface-container-high text-on-surface-variant border border-outline-variant text-[11px] font-bold rounded-md">—</span>
+            <span id="time-pill"   class="px-3 py-1 bg-surface-container-high text-on-surface-variant border border-outline-variant text-[11px] font-mono rounded-md">— ms</span>
+            <span id="size-pill"   class="px-3 py-1 bg-surface-container-high text-on-surface-variant border border-outline-variant text-[11px] font-mono rounded-md">— KB</span>
+          </div>
+        </div>
+        <button id="btn-copy" class="material-symbols-outlined text-outline hover:text-on-surface transition-colors" title="Copiar respuesta">content_copy</button>
+      </div>
+
+      <!-- Response Body -->
+      <div id="response-body-container" class="p-8 bg-[#020617] overflow-x-auto">
+        <pre id="response-body" class="font-code-sm text-sm leading-relaxed whitespace-pre-wrap"><code id="response-code">// Envía una petición para ver la respuesta…</code></pre>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Floating Mobile Action -->
+<div id="floating-mobile-action" class="lg:hidden fixed bottom-8 right-8">
+  <button id="btn-send-mobile" class="w-16 h-16 bg-primary text-on-primary rounded-full shadow-standard flex items-center justify-center">
+    <span class="material-symbols-outlined text-3xl">send</span>
+  </button>
+</div>
+
+<!-- SDK público de Lumo: registra el Service Worker y expone window.LumoApi -->
+<script type="module" src="./lumo-api.js"></script>
+
+<script type="module">
+import LumoApi from './lumo-api.js';
+
+// ---------------------------------------------------------------------------
+// CONFIGURACIÓN DE ENDPOINTS (espejo de src/sw/translators/*)
+// Cada endpoint declara los query params que su traductor acepta y los
+// escenarios pre-armados que demuestran sus capacidades.
+// ---------------------------------------------------------------------------
+const ENDPOINTS = {
+  '/products': {
+    method: 'GET',
+    title: 'Productos',
+    badge:  'REST · PostgREST',
+    description: 'Catálogo de productos con proyecciones 100% dinámicas. Soporta ILIKE sobre `name`, filtros `eq`/`in` sobre `id`, y meta-parámetros `prices`, `categories` y `attributes` con sentinelas `none` / `all` / lista.',
+    params: [
+      { key: 'search',     label: 'Search (ilike)', placeholder: 'e.g. reloj',     hint: 'Fuzzy matching parcial sobre `name`.' },
+      { key: 'limit',      label: 'Limit',          type: 'number', min: 1, max: 100, default: 10 },
+      { key: 'id',         label: 'ID(s)',          placeholder: 'eq.value o a,b,c', hint: '1 valor = `eq`; varios = `in.(...)`' },
+      { key: 'prices',     label: 'Prices',         placeholder: 'none | ALL | CO,US' },
+      { key: 'categories', label: 'Categories',     placeholder: 'none | ALL | Tech,Premium' },
+      { key: 'attributes', label: 'Attributes',     placeholder: 'none | ALL | peso,color' },
+    ],
+    scenarios: [
+      { tag: 'LITE',     name: 'Optimización Extrema',     tagTone: 'ok',    params: { limit: 5,  search: 'reloj' } },
+      { tag: 'FULL',     name: 'Payload Completo',         tagTone: 'ok',    params: { limit: 10, prices: 'all', categories: 'all', attributes: 'all' } },
+      { tag: 'QUERY',    name: 'Multi-Filtro Relacional',  tagTone: 'warn',  params: { categories: 'Tech,Accesorios', limit: 5 } },
+      { tag: 'CRITICAL', name: 'Security Audit',           tagTone: 'error', params: { search: "'; DROP TABLE products; --" } },
+    ],
+  },
+  '/utils/random-ids': {
+    method: 'POST',
+    title: 'Random IDs',
+    badge:  'REST · RPC',
+    description: 'Invoca el RPC `get_random_ids(p_table_name, p_limit, p_return_column, p_filter_column, p_filter_value)` sobre PostgREST. Identificadores saneados con `%I`; valores con parámetros vinculados.',
+    params: [
+      { key: 'table',         label: 'Table',         default: 'products' },
+      { key: 'limit',         label: 'Limit',         type: 'number', default: 10 },
+      { key: 'return_column', label: 'Return Column', default: 'id',     hint: 'Nombre exacto de la columna a proyectar.' },
+      { key: 'filter_column', label: 'Filter Column', placeholder: 'opcional' },
+      { key: 'filter_value',  label: 'Filter Value',  placeholder: 'opcional', hint: 'Se omite si falta `filter_column`.' },
+    ],
+    scenarios: [
+      { tag: 'LITE',  name: 'Slugs Aleatorios',  tagTone: 'ok',   params: { limit: 5,  return_column: 'slug' } },
+      { tag: 'FULL',  name: 'IDs Puros',         tagTone: 'ok',   params: { limit: 20 } },
+      { tag: 'QUERY', name: 'Filtrado por Categoría', tagTone: 'warn', params: { filter_column: 'category_name', filter_value: 'Tech', limit: 5 } },
+    ],
+  },
+};
+
+const FICTIONAL_BASE = 'https://api.lumocolombia.com.co';
+
+// ---------------------------------------------------------------------------
+// ESTADO
+// ---------------------------------------------------------------------------
+const state = {
+  endpoint: '/products',
+  params:   {},                 // { search: 'reloj', limit: 10, ... }
+  headers:  [
+    { key: 'Content-Type', value: 'application/json' },
+  ],
+  sending:  false,
+  lastResponse: null,
+};
+
+// ---------------------------------------------------------------------------
+// HELPERS
+// ---------------------------------------------------------------------------
+const $  = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+/** Serializa `state.params` omitiendo vacíos/nulos. */
+function buildQueryString() {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(state.params)) {
+    if (v === undefined || v === null || v === '') continue;
+    qs.set(k, String(v));
+  }
+  return qs.toString();
+}
+
+function buildFullUrl() {
+  const qs = buildQueryString();
+  return `${FICTIONAL_BASE}${state.endpoint}${qs ? `?${qs}` : ''}`;
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+}
+
+function formatMs(ms) {
+  return `${ms.toFixed(1)} ms`;
+}
+
+function statusTone(status) {
+  if (status >= 200 && status < 300) return 'ok';
+  if (status >= 300 && status < 400) return 'warn';
+  if (status >= 400 && status < 500) return 'warn';
+  if (status >= 500) return 'error';
+  return 'neutral';
+}
+
+/** Resaltador JSON recursivo que respeta tipos y claves. */
+function highlightJson(value, indent = 0) {
+  const pad = '  '.repeat(indent);
+  const padIn = '  '.repeat(indent + 1);
+
+  if (value === null) return '<span class="json-null">null</span>';
+  if (typeof value === 'boolean') return `<span class="json-bool">${value}</span>`;
+  if (typeof value === 'number') return `<span class="json-number">${value}</span>`;
+  if (typeof value === 'string') return `<span class="json-string">${escapeHtml(JSON.stringify(value))}</span>`;
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return '<span class="json-punct">[]</span>';
+    const items = value.map((v) => `${padIn}${highlightJson(v, indent + 1)}`).join(',\n');
+    return `<span class="json-punct">[</span>\n${items}\n${pad}<span class="json-punct">]</span>`;
+  }
+
+  if (typeof value === 'object') {
+    const keys = Object.keys(value);
+    if (keys.length === 0) return '<span class="json-punct">{}</span>';
+    const entries = keys.map((k) =>
+      `${padIn}<span class="json-key">${escapeHtml(JSON.stringify(k))}</span>: ${highlightJson(value[k], indent + 1)}`
+    ).join(',\n');
+    return `<span class="json-punct">{</span>\n${entries}\n${pad}<span class="json-punct">}</span>`;
+  }
+
+  return escapeHtml(String(value));
+}
+
+// ---------------------------------------------------------------------------
+// RENDERIZADO: TABS
+// ---------------------------------------------------------------------------
+function renderTabs() {
+  const bar = $('#tabs-bar');
+  bar.innerHTML = '';
+  for (const [path, cfg] of Object.entries(ENDPOINTS)) {
+    const isActive = path === state.endpoint;
+    const activeCls = isActive
+      ? 'bg-surface border-x border-outline-variant border-t-2 border-t-primary text-on-surface'
+      : 'text-outline hover:bg-surface-container hover:text-on-surface-variant';
+
+    const methodColor = cfg.method === 'GET' ? 'text-secondary' : 'text-tertiary';
+
+    const tab = document.createElement('button');
+    tab.dataset.path = path;
+    tab.className = `h-full px-6 ${activeCls} flex items-center gap-3 text-xs font-semibold transition-all whitespace-nowrap`;
+    tab.innerHTML = `
+      <span class="text-[10px] ${methodColor} font-bold font-mono">${cfg.method}</span>
+      <span>${path}</span>
+      <span class="material-symbols-outlined text-sm text-outline opacity-50">close</span>
+    `;
+    tab.addEventListener('click', (e) => {
+      if (e.target.classList.contains('material-symbols-outlined')) return;
+      switchEndpoint(path);
+    });
+    bar.appendChild(tab);
+  }
+
+  const addBtn = document.createElement('button');
+  addBtn.className = 'material-symbols-outlined text-outline p-2 hover:text-primary transition-all ml-2';
+  addBtn.textContent = 'add';
+  addBtn.title = 'Cambiar a la otra ruta disponible';
+  addBtn.addEventListener('click', () => {
+    const others = Object.keys(ENDPOINTS).filter((p) => p !== state.endpoint);
+    if (others[0]) switchEndpoint(others[0]);
+  });
+  bar.appendChild(addBtn);
+}
+
+// ---------------------------------------------------------------------------
+// RENDERIZADO: ESCENARIOS
+// ---------------------------------------------------------------------------
+function renderScenarios() {
+  const grid = $('#scenarios-grid');
+  grid.innerHTML = '';
+  const scenarios = ENDPOINTS[state.endpoint].scenarios;
+  scenarios.forEach((sc, idx) => {
+    const toneBorder = sc.tagTone === 'error'
+      ? 'border-error/30 hover:border-error hover:bg-error/5'
+      : 'border-outline-variant hover:border-primary hover:bg-surface-container-low';
+    const toneTag = sc.tagTone === 'error'
+      ? 'bg-error/20 text-error'
+      : 'bg-surface-container-high text-on-surface-variant';
+
+    const btn = document.createElement('button');
+    btn.className = `p-4 text-left border ${toneBorder} transition-all rounded-lg group shadow-sm`;
+    btn.innerHTML = `
+      <div class="flex justify-between items-start mb-2">
+        <span class="font-bold text-xs text-on-surface">${sc.name}</span>
+        <span class="text-[9px] px-2 py-0.5 ${toneTag} rounded font-bold">${sc.tag}</span>
+      </div>
+      <p class="text-[10px] text-outline font-mono break-all">${Object.entries(sc.params).map(([k, v]) => `${k}=${v}`).join(' · ') || 'sin params'}</p>
+    `;
+    btn.addEventListener('click', () => applyScenario(sc.params));
+    grid.appendChild(btn);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// RENDERIZADO: HEADERS
+// ---------------------------------------------------------------------------
+function renderHeaders() {
+  const list = $('#headers-list');
+  list.innerHTML = '';
+  state.headers.forEach((h, idx) => {
+    const row = document.createElement('div');
+    row.className = 'flex gap-3 items-center';
+    row.innerHTML = `
+      <div class="flex-1">
+        <input data-hkey="${idx}" class="w-full bg-surface border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary h-10 px-4 text-sm rounded-md outline-none transition-all placeholder:text-outline/50 font-medium" placeholder="Key" type="text" value="${escapeHtml(h.key)}" />
+      </div>
+      <div class="flex-[2]">
+        <input data-hval="${idx}" class="w-full bg-surface border border-outline-variant focus:border-primary focus:ring-1 focus:ring-primary h-10 px-4 text-sm rounded-md outline-none transition-all placeholder:text-outline/50" placeholder="Value" type="text" value="${escapeHtml(h.value)}" />
+      </div>
+      <button data-hdel="${idx}" class="material-symbols-outlined text-outline hover:text-error p-2 transition-colors" title="Eliminar">delete</button>
+    `;
+    list.appendChild(row);
+  });
+
+  list.querySelectorAll('[data-hkey]').forEach((inp) => {
+    inp.addEventListener('input', (e) => {
+      const idx = Number(e.target.dataset.hkey);
+      state.headers[idx].key = e.target.value;
+    });
+  });
+  list.querySelectorAll('[data-hval]').forEach((inp) => {
+    inp.addEventListener('input', (e) => {
+      const idx = Number(e.target.dataset.hval);
+      state.headers[idx].value = e.target.value;
+    });
+  });
+  list.querySelectorAll('[data-hdel]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      const idx = Number(e.currentTarget.dataset.hdel);
+      state.headers.splice(idx, 1);
+      renderHeaders();
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// RENDERIZADO: PARAMS
+// ---------------------------------------------------------------------------
+function renderParams() {
+  const wrap = $('#params-list');
+  wrap.innerHTML = '';
+  const cfg = ENDPOINTS[state.endpoint];
+
+  cfg.params.forEach((p) => {
+    const current = state.params[p.key] ?? p.default ?? '';
+
+    const head = document.createElement('div');
+    head.className = 'flex justify-between items-center mb-2 px-1';
+    head.innerHTML = `
+      <label class="text-xs font-bold text-on-surface">${p.label}</label>
+      <span class="text-[10px] text-outline font-mono bg-surface-container-high px-1.5 py-0.5 rounded">?${p.key}</span>
+    `;
+    wrap.appendChild(head);
+
+    const input = document.createElement('input');
+    input.className = 'w-full bg-surface-container-low border border-outline-variant focus:border-primary focus:ring-0 h-12 px-4 text-sm rounded-lg outline-none transition-all';
+    input.placeholder = p.placeholder ?? '';
+    if (p.type === 'number') {
+      input.type = 'number';
+      if (p.min !== undefined) input.min = p.min;
+      if (p.max !== undefined) input.max = p.max;
+    } else {
+      input.type = 'text';
+    }
+    input.value = current;
+    input.addEventListener('input', (e) => {
+      const v = e.target.value;
+      if (v === '' && p.default === undefined) {
+        delete state.params[p.key];
+      } else {
+        state.params[p.key] = v;
+      }
+      updateUrlPreview();
+    });
+    wrap.appendChild(input);
+
+    if (p.hint) {
+      const hint = document.createElement('p');
+      hint.className = 'text-[11px] text-outline mt-2 italic px-1';
+      hint.textContent = p.hint;
+      wrap.appendChild(hint);
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// RENDERIZADO: URL PREVIEW
+// ---------------------------------------------------------------------------
+function updateUrlPreview() {
+  $('#request-url').textContent = buildFullUrl();
+}
+
+// ---------------------------------------------------------------------------
+// SWITCH ENDPOINT
+// ---------------------------------------------------------------------------
+function switchEndpoint(path) {
+  if (!ENDPOINTS[path]) return;
+  state.endpoint = path;
+  // Resetear params a defaults del nuevo endpoint
+  state.params = {};
+  const cfg = ENDPOINTS[path];
+  (cfg.params || []).forEach((p) => {
+    if (p.default !== undefined) state.params[p.key] = p.default;
+  });
+  // Pintar UI
+  $('#endpoint-title').textContent = cfg.title;
+  $('#endpoint-badge').textContent  = cfg.badge;
+  $('#endpoint-description').textContent = cfg.description;
+  $('#method-badge').textContent = cfg.method;
+  $('#method-badge').className = cfg.method === 'GET'
+    ? 'px-2 py-0.5 bg-secondary/10 text-secondary border border-secondary/30 rounded text-[10px] font-bold font-mono'
+    : 'px-2 py-0.5 bg-tertiary/10 text-tertiary border border-tertiary/30 rounded text-[10px] font-bold font-mono';
+  $('#scheme-label').textContent = 'HTTPS';
+  $('#engine-pill').textContent  = `engine: ${cfg.method === 'GET' ? 'REST' : 'RPC'}`;
+
+  renderTabs();
+  renderScenarios();
+  renderParams();
+  updateUrlPreview();
+  clearResponse(`// Endpoint cambiado a ${cfg.method} ${path}\n// Ajusta parámetros y envía.`);
+}
+
+// ---------------------------------------------------------------------------
+// ACCIONES
+// ---------------------------------------------------------------------------
+function applyScenario(params) {
+  // Limpiar params actuales antes de aplicar el escenario (no merge).
+  for (const k of Object.keys(state.params)) delete state.params[k];
+  // Aplicar los params del escenario sobre el objeto ya vacío.
+  for (const [k, v] of Object.entries(params)) state.params[k] = v;
+  // Re-pintar inputs para reflejar los nuevos valores
+  renderParams();
+  updateUrlPreview();
+}
+
+function addHeader() {
+  state.headers.push({ key: '', value: '' });
+  renderHeaders();
+}
+
+function clearResponse(text) {
+  $('#status-pill').textContent = '—';
+  $('#status-pill').className = 'px-3 py-1 bg-surface-container-high text-on-surface-variant border border-outline-variant text-[11px] font-bold rounded-md';
+  $('#time-pill').textContent = '— ms';
+  $('#size-pill').textContent = '— KB';
+  $('#response-code').innerHTML = text
+    ? `<span class="text-outline italic">${escapeHtml(text)}</span>`
+    : '<span class="text-outline italic">// Envía una petición para ver la respuesta…</span>';
+}
+
+async function sendRequest() {
+  if (state.sending) return;
+  state.sending = true;
+  const btn = $('#btn-send');
+  const originalLabel = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner"></span><span class="font-bold uppercase tracking-widest text-sm">Enviando…</span>`;
+
+  const url = buildFullUrl();
+  const headers = {};
+  for (const { key, value } of state.headers) {
+    if (key.trim() === '') continue;
+    headers[key.trim()] = value;
+  }
+
+  const cfg = ENDPOINTS[state.endpoint];
+  const init = {
+    method: cfg.method,
+    headers,
+    // credentials: 'omit' es coherente con la policy del SW; en navegador
+    // no cambiamos nada más: el SW se encarga del upstream real.
+    cache: 'no-store',
+  };
+
+  const t0 = performance.now();
+  let response, errorText = null;
+  try {
+    response = await fetch(url, init);
+  } catch (err) {
+    errorText = err?.message || String(err);
+  }
+  const elapsed = performance.now() - t0;
+
+  if (errorText) {
+    clearResponse();
+    $('#status-pill').textContent = 'NETWORK';
+    $('#status-pill').className = 'px-3 py-1 bg-error/20 text-error border border-error/30 text-[11px] font-bold rounded-md';
+    $('#time-pill').textContent = formatMs(elapsed);
+    $('#size-pill').textContent = '0 B';
+    $('#response-code').innerHTML =
+      `<span class="json-key">"error"</span>: <span class="json-string">${escapeHtml(errorText)}</span>,\n` +
+      `<span class="json-key">"hint"</span>: <span class="json-string">Asegúrate de que el SW esté activo y que la ruta exista en el traductor.</span>`;
+  } else {
+    const bodyText = await response.text();
+    const size = new Blob([bodyText]).size;
+    const tone = statusTone(response.status);
+
+    const toneCls = {
+      ok:      'bg-secondary text-on-primary',
+      warn:    'bg-tertiary text-on-primary',
+      error:   'bg-error text-on-primary',
+      neutral: 'bg-surface-container-high text-on-surface-variant border border-outline-variant',
+    }[tone];
+
+    $('#status-pill').textContent = `${response.status} ${response.statusText || ''}`.trim();
+    $('#status-pill').className = `px-3 py-1 ${toneCls} text-[11px] font-bold rounded-md`;
+    $('#time-pill').textContent = formatMs(elapsed);
+    $('#size-pill').textContent = formatBytes(size);
+
+    // Cabeceras del gateway (para debug)
+    const lumoPath   = response.headers.get('X-Lumo-Path');
+    const lumoEngine = response.headers.get('X-Lumo-Engine');
+    $('#engine-label').textContent = lumoEngine ? `X-Lumo-Engine: ${lumoEngine}` : '';
+    $('#engine-pill').textContent  = `engine: ${lumoEngine || (cfg.method === 'GET' ? 'REST' : 'RPC')}`;
+
+    // Render del body
+    let bodyHtml;
+    try {
+      const parsed = JSON.parse(bodyText || '{}');
+      bodyHtml = highlightJson(parsed);
+    } catch {
+      bodyHtml = escapeHtml(bodyText || '(vacío)');
+    }
+
+    const headerInfo = lumoPath
+      ? `<span class="json-punct">// X-Lumo-Path: ${escapeHtml(lumoPath)} · X-Lumo-Engine: ${escapeHtml(lumoEngine || '?')}</span>\n`
+      : '';
+    $('#response-code').innerHTML = headerInfo + bodyHtml;
+
+    state.lastResponse = { status: response.status, body: bodyText, headers: Object.fromEntries(response.headers.entries()) };
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = originalLabel;
+  state.sending = false;
+}
+
+// ---------------------------------------------------------------------------
+// SW STATUS UI
+// ---------------------------------------------------------------------------
+function setSwUi(state_, label) {
+  const dot = $('#sw-dot');
+  const txt = $('#sw-label');
+  dot.classList.remove('bg-outline', 'bg-secondary', 'bg-tertiary', 'bg-error');
+  if (state_ === 'active')      dot.classList.add('bg-secondary');
+  else if (state_ === 'pending') dot.classList.add('bg-tertiary');
+  else if (state_ === 'error')  dot.classList.add('bg-error');
+  else                           dot.classList.add('bg-outline');
+  txt.textContent = label;
+}
+
+async function refreshSwStatus() {
+  if (!('serviceWorker' in navigator)) {
+    setSwUi('error', 'SW no soportado');
+    return null;
+  }
+  const reg = await navigator.serviceWorker.getRegistration();
+  if (!reg) {
+    setSwUi('pending', 'SW: sin registrar');
+    return null;
+  }
+  if (reg.active) {
+    setSwUi('active', 'SW: activo');
+  } else if (reg.waiting) {
+    setSwUi('pending', 'SW: en espera');
+  } else if (reg.installing) {
+    setSwUi('pending', 'SW: instalando');
+  } else {
+    setSwUi('pending', 'SW: desconocido');
+  }
+  return reg;
+}
+
+// ---------------------------------------------------------------------------
+// BOOT
+// ---------------------------------------------------------------------------
+async function boot() {
+  // Versión SDK
+  const verEl = $('#lumo-version');
+  if (verEl) verEl.textContent = LumoApi ? `v${LumoApi.version}` : '';
+
+  // Registrar SW (la ruta debe ser relativa al HTML). El scope lo
+  // auto-deriva el SDK desde el directorio del SW para evitar
+  // SecurityError cuando el script vive en un sub-path.
+  await LumoApi.register('./sw.js');
+  await refreshSwStatus();
+
+  // Re-pintar estado cuando el SW tome control
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker.addEventListener('controllerchange', refreshSwStatus);
+    navigator.serviceWorker.ready.then(refreshSwStatus);
+  }
+
+  // Listeners
+  $('#btn-add-header').addEventListener('click', addHeader);
+  $('#btn-send').addEventListener('click', sendRequest);
+  const mobileBtn = $('#btn-send-mobile');
+  if (mobileBtn) mobileBtn.addEventListener('click', sendRequest);
+
+  $('#btn-copy').addEventListener('click', async () => {
+    if (!state.lastResponse) return;
+    try {
+      await navigator.clipboard.writeText(state.lastResponse.body);
+      const ic = $('#btn-copy');
+      const prev = ic.textContent;
+      ic.textContent = 'check';
+      setTimeout(() => { ic.textContent = prev; }, 1200);
+    } catch {/* ignore */}
+  });
+
+  $('#btn-ping').addEventListener('click', async () => {
+    const reg = await refreshSwStatus();
+    if (reg && reg.active) {
+      const mc = new MessageChannel();
+      mc.port1.onmessage = (ev) => {
+        const ep = ev.data?.endpoint;
+        clearResponse(`// PONG del SW\n// endpoint upstream: ${ep}`);
+      };
+      reg.active.postMessage('LUMO_PING', [mc.port2]);
+    } else {
+      clearResponse('// No hay SW activo para hacer ping.');
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      sendRequest();
+    }
+  });
+
+  // Estado inicial
+  switchEndpoint('/products');
+  // Si el endpoint por defecto tenía params.default, ya están aplicados.
+
+  // Primer ping silencioso para confirmar el SW
+  setTimeout(async () => {
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const mc = new MessageChannel();
+      mc.port1.onmessage = () => { /* ok */ };
+      reg.active?.postMessage('LUMO_PING', [mc.port2]);
+    } catch { /* ignore */ }
+  }, 800);
+}
+
+boot().catch((err) => {
+  console.error('[Lumo Console] boot failed:', err);
+  setSwUi('error', 'boot error');
+});
+</script>
+</body>
+</html>

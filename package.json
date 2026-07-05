@@ -1,0 +1,29 @@
+{
+  "name": "lumo-api-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API Lumo - SDK privada basada en Service Worker para traducción REST->GraphQL sobre Supabase.",
+  "type": "module",
+  "main": "dist/lumo-api.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "pwa",
+    "service-worker",
+    "supabase",
+    "graphql",
+    "gateway",
+    "sdk"
+  ],
+  "author": "Lumo Colombia",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "vite": "^5.4.10"
+  }
+}
