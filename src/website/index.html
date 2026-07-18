@@ -53,6 +53,14 @@
   .json-bool   { color: #f472b6; }
   .json-null   { color: #94a3b8; font-style: italic; }
   .json-punct  { color: #64748b; }
+  .url-scheme   { color: #7F8C99; font-weight: 500; }
+  .url-host     { color: #F8F9FA; }
+  .url-path     { color: #A5E5F6; }
+  .url-qs-start { color: #7F8C99; }
+  .url-qs-amp   { color: #FDA4AF; }
+  .url-qs-key   { color: #FDE047; font-weight: 500; }
+  .url-qs-eq    { color: #7F8C99; }
+  .url-qs-val   { color: #FDBA74; }
   input:focus, button:focus, textarea:focus { outline: 2px solid #3b82f6; outline-offset: 2px; }
   .spinner {
     width: 14px; height: 14px;
@@ -167,11 +175,14 @@
         </button>
       </div>
 
-      <!-- URL Card -->
-      <div id="url-card" class="p-8 bg-surface-container-low/30 border-b border-outline-variant">
-        <h3 class="font-bold text-xs text-outline uppercase mb-4 tracking-widest">Request URL</h3>
-        <div class="bg-surface p-5 rounded-xl border border-outline-variant shadow-sm">
-          <div class="flex items-center gap-3 mb-3">
+       <!-- URL Card -->
+       <div id="url-card" class="p-8 bg-surface-container-low/30 border-b border-outline-variant">
+         <div class="flex justify-between items-center mb-4">
+           <h3 class="font-bold text-xs text-outline uppercase tracking-widest">Request URL</h3>
+           <button id="btn-copy-url" class="material-symbols-outlined text-outline hover:text-primary transition-colors" title="Copiar URL">content_copy</button>
+         </div>
+         <div class="bg-surface p-5 rounded-xl border border-outline-variant shadow-sm">
+           <div class="flex items-center gap-3 mb-3">
             <span id="method-badge" class="px-2 py-0.5 bg-secondary/10 text-secondary border border-secondary/30 rounded text-[10px] font-bold font-mono">GET</span>
             <span id="scheme-label" class="text-xs text-outline font-medium">HTTPS</span>
             <span id="engine-label" class="ml-auto text-[10px] font-mono text-outline"></span>
@@ -318,6 +329,61 @@ function statusTone(status) {
   if (status >= 400 && status < 500) return 'warn';
   if (status >= 500) return 'error';
   return 'neutral';
+}
+
+/** Resaltador de URL: esquema, host, path y pares `key=value` del query string. */
+function highlightUrl(rawUrl) {
+  if (!rawUrl) return '';
+  // Solo escapamos '<' y '>': podrían romper el span. El '&' es separador
+  // del query string y debe quedar literal para que `split('&')` funcione
+  // y para que se renderice como '&' (no como '&amp;').
+  const u = String(rawUrl).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // 1) Esquema + host (lo que está antes del primer '/' tras el esquema).
+  //    Para algo como `https://api.lumocolombia.com.co/products?...`,
+  //    capturamos scheme "https://" + host "api.lumocolombia.com.co".
+  const schemeHost = u.match(/^([a-zA-Z][a-zA-Z0-9+.\-]*:\/\/)([^\/?#]+)/);
+  let prefix = '';
+  let rest = u;
+  if (schemeHost) {
+    const [, scheme, host] = schemeHost;
+    prefix = `<span class="url-scheme">${scheme}</span><span class="url-host">${host}</span>`;
+    // schemeHost[0] ya es el match completo (scheme + host); saltar solo eso.
+    rest = u.slice(schemeHost[0].length);
+  }
+
+  // 2) Separar path y query string.
+  const qIdx = rest.indexOf('?');
+  let path = rest;
+  let qs = '';
+  if (qIdx !== -1) {
+    path = rest.slice(0, qIdx);
+    qs = rest.slice(qIdx); // incluye el '?'
+  }
+
+  const pathHtml = path
+    ? `<span class="url-path">${path}</span>`
+    : '';
+
+  // 3) Query string: '?' separador + pares 'key=val' unidos por '&'.
+  let qsHtml = '';
+  if (qs) {
+    const sep = qs[0]; // '?'
+    const body = qs.slice(1);
+    const pairs = body ? body.split('&') : [];
+    const parts = pairs.map((pair) => {
+      const eq = pair.indexOf('=');
+      if (eq === -1) {
+        return `<span class="url-qs-val">${pair}</span>`;
+      }
+      const k = pair.slice(0, eq);
+      const v = pair.slice(eq + 1);
+      return `<span class="url-qs-key">${k}</span><span class="url-qs-eq">=</span><span class="url-qs-val">${v}</span>`;
+    }).join('<span class="url-qs-amp">&amp;</span>');
+    qsHtml = `<span class="url-qs-start">${sep}</span>${parts}`;
+  }
+
+  return prefix + pathHtml + qsHtml;
 }
 
 /** Resaltador JSON recursivo que respeta tipos y claves. */
@@ -513,7 +579,8 @@ function renderParams() {
 // RENDERIZADO: URL PREVIEW
 // ---------------------------------------------------------------------------
 function updateUrlPreview() {
-  $('#request-url').textContent = buildFullUrl();
+  const el = $('#request-url');
+  el.innerHTML = highlightUrl(buildFullUrl());
 }
 
 // ---------------------------------------------------------------------------
@@ -728,6 +795,16 @@ async function boot() {
     try {
       await navigator.clipboard.writeText(state.lastResponse.body);
       const ic = $('#btn-copy');
+      const prev = ic.textContent;
+      ic.textContent = 'check';
+      setTimeout(() => { ic.textContent = prev; }, 1200);
+    } catch {/* ignore */}
+  });
+
+  $('#btn-copy-url').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(buildFullUrl());
+      const ic = $('#btn-copy-url');
       const prev = ic.textContent;
       ic.textContent = 'check';
       setTimeout(() => { ic.textContent = prev; }, 1200);

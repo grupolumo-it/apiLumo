@@ -94,8 +94,8 @@ const PRODUCTS_METHOD = 'GET';
  */
 const SCALAR_FIELDS = 'id,name,description,image_url';
 
-/** Bounds de paginación tolerante para `limit`. */
-const LIMIT_MIN     = 1;
+/** Bounds de paginación tolerante para `limit`. 0 es valor válido (0 resultados). */
+const LIMIT_MIN     = 0;
 const LIMIT_MAX     = 100;
 const LIMIT_DEFAULT = 10;
 
